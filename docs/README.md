@@ -28,17 +28,6 @@ Welcome to the PyFlameVision documentation. PyFlameVision is a Cerebras-native c
 - [Datasets Module](./api/DATASETS.md) - Dataset, DataLoader, ImageFolder, Samplers
 - [IO Module](./api/IO.md) - read_image, write_image, decode_image, encode_image
 
-### Design Documents
-
-- [Phase 1 Implementation Guide](./PHASE1_IMPLEMENTATION_GUIDE.md) - Core transforms implementation
-- [Phase 2 Architecture](./PHASE2_ARCHITECTURE.md) - Model architectures design
-- [Phase 2 Implementation Guide](./PHASE2_IMPLEMENTATION_GUIDE.md) - nn module and models implementation
-- [Phase 3 Implementation Guide](./PHASE3_IMPLEMENTATION_GUIDE.md) - Data augmentation transforms
-- [Phase 4 Implementation Guide](./PHASE4_IMPLEMENTATION_GUIDE.md) - Specialized operations (GridSample, ROIAlign, NMS)
-- [Phase 5 Implementation Guide](./PHASE5_IMPLEMENTATION_GUIDE.md) - Dataset integration (ImageFolder, DataLoader)
-- [Security Audit](./SECURITY_AUDIT.md) - Security review and mitigations
-- [Phase 4 Security Audit](./PHASE4_SECURITY_AUDIT.md) - Phase 4 security review
-
 ## Version
 
 Current version: 5.0.0-alpha
