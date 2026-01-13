@@ -1,5 +1,9 @@
 # PyFlameVision Documentation
 
+> **PRE-RELEASE ALPHA SOFTWARE**
+>
+> This project is currently in an early alpha stage of development. APIs may change without notice, features may be incomplete, and the software is not yet recommended for production use. Use at your own risk.
+
 Welcome to the PyFlameVision documentation. PyFlameVision is a Cerebras-native computer vision library that provides high-performance image processing transforms and model architectures optimized for the Wafer-Scale Engine (WSE).
 
 ## Documentation Overview

@@ -1,11 +1,16 @@
 # PyFlameVision
 
+> **PRE-RELEASE ALPHA SOFTWARE**
+>
+> This project is currently in an early alpha stage of development. APIs may change without notice, features may be incomplete, and the software is not yet recommended for production use. Use at your own risk.
+
 **Cerebras-native Computer Vision Library**
 
 PyFlameVision is a computer vision library designed for the Cerebras Wafer Scale Engine (WSE), providing PyTorch-compatible APIs for image transforms, datasets, and vision operations.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
 ## Features
 
@@ -18,12 +23,6 @@ PyFlameVision is a computer vision library designed for the Cerebras Wafer Scale
 
 ## Installation
 
-### From PyPI (recommended)
-
-```bash
-pip install pyflame-vision
-```
-
 ### From Source
 
 ```bash
@@ -35,18 +34,14 @@ pip install .
 ### Development Installation
 
 ```bash
+git clone https://github.com/pyflame/pyflame-vision.git
+cd pyflame-vision
 pip install -e ".[dev]"
 ```
 
 ### With PyFlame Integration
 
-For full hardware acceleration with PyFlame:
-
-```bash
-pip install "pyflame-vision[pyflame]"
-```
-
-Or set the `PYFLAME_DIR` environment variable before building:
+For full hardware acceleration, set the `PYFLAME_DIR` environment variable before building:
 
 ```bash
 export PYFLAME_DIR=/path/to/pyflame

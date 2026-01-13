@@ -1,6 +1,8 @@
 """
 PyFlameVision Transforms
 
+**PRE-RELEASE ALPHA SOFTWARE** - APIs may change without notice.
+
 Image transforms for preprocessing and data augmentation.
 API is compatible with torchvision.transforms.
 

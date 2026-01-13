@@ -1,5 +1,7 @@
 # Contributing to PyFlameVision
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 Thank you for your interest in contributing to PyFlameVision! This guide covers everything you need to know to contribute effectively.
 
 ## Table of Contents

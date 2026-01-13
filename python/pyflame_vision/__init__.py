@@ -1,6 +1,12 @@
 """
 PyFlameVision: Cerebras-native Computer Vision Library
 
+**PRE-RELEASE ALPHA SOFTWARE**
+
+This project is currently in an early alpha stage of development.
+APIs may change without notice, features may be incomplete, and the software
+is not yet recommended for production use. Use at your own risk.
+
 A standalone computer vision library with optional PyFlame integration
 for hardware-accelerated execution on Cerebras WSE.
 

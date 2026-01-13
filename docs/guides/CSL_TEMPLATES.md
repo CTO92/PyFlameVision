@@ -1,5 +1,7 @@
 # CSL Template Development Guide
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 This guide covers how to create and modify CSL (Cerebras Software Language) templates for PyFlameVision transforms.
 
 ## Overview

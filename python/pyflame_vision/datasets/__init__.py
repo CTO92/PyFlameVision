@@ -1,6 +1,8 @@
 """
 PyFlameVision Datasets Module.
 
+**PRE-RELEASE ALPHA SOFTWARE** - APIs may change without notice.
+
 This module provides dataset abstractions for loading image data.
 """
 

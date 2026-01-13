@@ -1,5 +1,7 @@
 # Datasets API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 PyFlameVision provides PyTorch-compatible dataset and data loading utilities for efficient training pipelines.
 
 ## Quick Start

@@ -1,5 +1,7 @@
 # Models API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 The `pyflame_vision.models` module provides production-ready vision model architectures compatible with the torchvision API.
 
 ## Quick Reference

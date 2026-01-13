@@ -1,6 +1,8 @@
 """
 PyFlameVision Image I/O Module.
 
+**PRE-RELEASE ALPHA SOFTWARE** - APIs may change without notice.
+
 This module provides utilities for reading and writing images.
 """
 

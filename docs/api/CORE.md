@@ -1,5 +1,7 @@
 # Core Module API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 The core module provides fundamental types and utilities for image tensor operations.
 
 ## ImageFormat

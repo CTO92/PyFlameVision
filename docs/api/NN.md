@@ -1,5 +1,7 @@
 # Neural Network (nn) Module API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 The `pyflame_vision.nn` module provides PyTorch-compatible neural network layer abstractions for building model architectures.
 
 ## Core Classes

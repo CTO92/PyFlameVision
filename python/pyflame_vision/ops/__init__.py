@@ -1,6 +1,8 @@
 """
 PyFlameVision Operations
 
+**PRE-RELEASE ALPHA SOFTWARE** - APIs may change without notice.
+
 Specialized operations for detection and spatial transformers.
 API is compatible with torchvision.ops.
 

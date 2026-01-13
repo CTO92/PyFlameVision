@@ -1,5 +1,7 @@
 # Installation Guide
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 This guide covers how to build and install PyFlameVision from source.
 
 ## Prerequisites

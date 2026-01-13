@@ -1,5 +1,9 @@
 # PyFlameVision Architecture
 
+> **PRE-RELEASE ALPHA SOFTWARE**
+>
+> This project is currently in an early alpha stage of development. APIs may change without notice, features may be incomplete, and the software is not yet recommended for production use.
+
 **Version:** 6.0
 **Date:** January 12, 2026
 
@@ -53,11 +57,13 @@ PyFlame (separate repository)
 
 ### Installation Modes
 
-PyFlameVision supports two installation modes:
+PyFlameVision supports two installation modes (install from source):
 
 **1. Pure Python (Standalone)**
 ```bash
-pip install pyflame-vision
+git clone https://github.com/pyflame/pyflame-vision.git
+cd pyflame-vision
+pip install .
 ```
 - Full Python API (transforms, datasets, io, ops)
 - NumPy-based operations
@@ -66,10 +72,10 @@ pip install pyflame-vision
 
 **2. With PyFlame Integration**
 ```bash
-pip install "pyflame-vision[pyflame]"
-# or
+git clone https://github.com/pyflame/pyflame-vision.git
+cd pyflame-vision
 export PYFLAME_DIR=/path/to/pyflame
-pip install pyflame-vision
+pip install .
 ```
 - All standalone features
 - Hardware-accelerated operations on Cerebras WSE

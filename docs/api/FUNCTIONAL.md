@@ -1,5 +1,7 @@
 # Functional API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 The functional API provides stateless functions for transform operations. These are useful when you need direct control over transform parameters without creating transform objects.
 
 ## Python Module

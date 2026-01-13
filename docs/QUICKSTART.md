@@ -1,5 +1,7 @@
 # Quick Start Guide
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 Get up and running with PyFlameVision in 5 minutes.
 
 ## Basic Usage (Python)

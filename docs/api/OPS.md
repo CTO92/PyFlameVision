@@ -1,5 +1,7 @@
 # Operations (ops) Module API Reference
 
+> **PRE-RELEASE ALPHA SOFTWARE** - This project is currently in an early alpha stage. APIs may change without notice.
+
 The `pyflame_vision.ops` module provides specialized computer vision operations commonly used in object detection and segmentation models. These operations are compatible with `torchvision.ops`.
 
 ## Grid Sample
