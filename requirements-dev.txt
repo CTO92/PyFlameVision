@@ -1,0 +1,23 @@
+# PyFlameVision Development Dependencies
+-r requirements.txt
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Code quality
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.0.0
+ruff>=0.1.0
+
+# Documentation
+sphinx>=6.0.0
+sphinx-rtd-theme>=1.3.0
+sphinx-autodoc-typehints>=1.22.0
+
+# Build tools
+cmake>=3.18
+pybind11>=2.11.0
+wheel
+setuptools>=61.0

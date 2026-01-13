@@ -1,0 +1,85 @@
+// PyFlame Vision Generated - Horizontal Flip
+// Operation: {{OP_NAME}}
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// PE coordinates
+param pe_x: u32;
+param pe_y: u32;
+
+// Dimensions
+const BATCH: u32 = {{BATCH}};
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+const HEIGHT: u32 = {{HEIGHT}};
+const WIDTH: u32 = {{WIDTH}};
+
+// Tile dimensions for this PE
+const TILE_H: u32 = {{TILE_H}};
+const TILE_W: u32 = {{TILE_W}};
+
+// Global width for coordinate mapping
+const GLOBAL_WIDTH: u32 = {{GLOBAL_WIDTH}};
+
+// Data buffers
+var input_tile: [BATCH][NUM_CHANNELS][TILE_H][TILE_W]f32;
+var output_tile: [BATCH][NUM_CHANNELS][TILE_H][TILE_W]f32;
+
+// Export pointers
+export var input_ptr = &input_tile;
+export var output_ptr = &output_tile;
+
+// Whether to apply flip (set by host based on random decision)
+param apply_flip: bool = {{APPLY_FLIP}};
+
+// Horizontal flip task
+task hflip() void {
+    if (apply_flip) {
+        // Apply horizontal flip
+        // For distributed tiles, we flip globally by mapping coordinates
+        const global_x_offset = pe_x * TILE_W;
+
+        for (@range(u32, 0, BATCH)) |b| {
+            for (@range(u32, 0, NUM_CHANNELS)) |c| {
+                for (@range(u32, 0, TILE_H)) |h| {
+                    for (@range(u32, 0, TILE_W)) |w| {
+                        // Compute global x coordinate after flip
+                        const global_x = global_x_offset + w;
+                        const flipped_global_x = GLOBAL_WIDTH - 1 - global_x;
+
+                        // Check if flipped coordinate is within this tile
+                        const flipped_local_x = flipped_global_x - global_x_offset;
+                        if (flipped_local_x < TILE_W) {
+                            output_tile[b][c][h][w] = input_tile[b][c][h][flipped_local_x];
+                        } else {
+                            // Data from another PE - handled by host routing
+                            output_tile[b][c][h][w] = 0.0;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // No flip - copy input to output
+        for (@range(u32, 0, BATCH)) |b| {
+            for (@range(u32, 0, NUM_CHANNELS)) |c| {
+                for (@range(u32, 0, TILE_H)) |h| {
+                    for (@range(u32, 0, TILE_W)) |w| {
+                        output_tile[b][c][h][w] = input_tile[b][c][h][w];
+                    }
+                }
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(hflip, sys_mod.LAUNCH);
+}

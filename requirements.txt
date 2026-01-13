@@ -1,0 +1,7 @@
+# PyFlameVision Core Dependencies
+numpy>=1.20.0
+pillow>=8.0.0
+
+# Build dependencies (for source installation)
+# cmake>=3.18
+# pybind11>=2.11.0

@@ -1,0 +1,115 @@
+// PyFlame Vision Generated - Rotation
+// Operation: {{OP_NAME}}
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// PE coordinates
+param pe_x: u32;
+param pe_y: u32;
+
+// Dimensions
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+const SRC_HEIGHT: u32 = {{SRC_HEIGHT}};
+const SRC_WIDTH: u32 = {{SRC_WIDTH}};
+const DST_HEIGHT: u32 = {{DST_HEIGHT}};
+const DST_WIDTH: u32 = {{DST_WIDTH}};
+
+// Tile dimensions
+const TILE_SRC_H: u32 = {{TILE_SRC_H}};
+const TILE_SRC_W: u32 = {{TILE_SRC_W}};
+const TILE_DST_H: u32 = {{TILE_DST_H}};
+const TILE_DST_W: u32 = {{TILE_DST_W}};
+
+// Halo for bilinear interpolation
+const HALO: u32 = {{HALO}};
+
+// Rotation parameters (precomputed by host)
+const angle_rad: f32 = {{ANGLE_RAD}};
+const cos_angle: f32 = {{COS_ANGLE}};
+const sin_angle: f32 = {{SIN_ANGLE}};
+const center_x: f32 = {{CENTER_X}};
+const center_y: f32 = {{CENTER_Y}};
+const fill_value: f32 = {{FILL_VALUE}};
+
+// Data buffers
+var src_tile: [NUM_CHANNELS][TILE_SRC_H + 2*HALO][TILE_SRC_W + 2*HALO]f32;
+var dst_tile: [NUM_CHANNELS][TILE_DST_H][TILE_DST_W]f32;
+
+export var src_ptr = &src_tile;
+export var dst_ptr = &dst_tile;
+
+// Bilinear interpolation at fractional coordinates
+fn sample_bilinear(c: u32, y: f32, x: f32) f32 {
+    const max_y = @as(f32, TILE_SRC_H + 2*HALO - 1);
+    const max_x = @as(f32, TILE_SRC_W + 2*HALO - 1);
+
+    // Check bounds
+    if (y < 0.0 or y >= max_y or x < 0.0 or x >= max_x) {
+        return fill_value;
+    }
+
+    const y0 = @as(u32, @floor(y));
+    const x0 = @as(u32, @floor(x));
+    const y1 = @min(y0 + 1, @as(u32, TILE_SRC_H + 2*HALO - 1));
+    const x1 = @min(x0 + 1, @as(u32, TILE_SRC_W + 2*HALO - 1));
+
+    const fy = y - @as(f32, y0);
+    const fx = x - @as(f32, x0);
+
+    const v00 = src_tile[c][y0][x0];
+    const v01 = src_tile[c][y0][x1];
+    const v10 = src_tile[c][y1][x0];
+    const v11 = src_tile[c][y1][x1];
+
+    const top = v00 * (1.0 - fx) + v01 * fx;
+    const bot = v10 * (1.0 - fx) + v11 * fx;
+
+    return top * (1.0 - fy) + bot * fy;
+}
+
+// Main rotation task
+task rotate() void {
+    // Compute global offset for this PE
+    const global_y_offset = @as(f32, pe_y * TILE_DST_H);
+    const global_x_offset = @as(f32, pe_x * TILE_DST_W);
+
+    for (@range(u32, 0, NUM_CHANNELS)) |c| {
+        for (@range(u32, 0, TILE_DST_H)) |dy| {
+            for (@range(u32, 0, TILE_DST_W)) |dx| {
+                // Destination coordinates (global)
+                const dst_y = global_y_offset + @as(f32, dy);
+                const dst_x = global_x_offset + @as(f32, dx);
+
+                // Translate to center, apply inverse rotation, translate back
+                const rel_y = dst_y - center_y;
+                const rel_x = dst_x - center_x;
+
+                // Inverse rotation (negative angle = cos same, sin negated)
+                const src_rel_x = rel_x * cos_angle + rel_y * sin_angle;
+                const src_rel_y = -rel_x * sin_angle + rel_y * cos_angle;
+
+                const src_y = src_rel_y + center_y;
+                const src_x = src_rel_x + center_x;
+
+                // Convert to local tile coordinates with halo offset
+                const local_y = src_y - @as(f32, pe_y * TILE_SRC_H) + @as(f32, HALO);
+                const local_x = src_x - @as(f32, pe_x * TILE_SRC_W) + @as(f32, HALO);
+
+                // Sample with bilinear interpolation
+                dst_tile[c][dy][dx] = sample_bilinear(c, local_y, local_x);
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(rotate, sys_mod.LAUNCH);
+}

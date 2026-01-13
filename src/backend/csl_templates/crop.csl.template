@@ -1,0 +1,93 @@
+// PyFlame Vision Generated - Crop Operation
+// Operation: {{OP_NAME}}
+// Crop region: ({{TOP}}, {{LEFT}}) to ({{TOP}} + {{CROP_HEIGHT}}, {{LEFT}} + {{CROP_WIDTH}})
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// PE coordinates
+param pe_x: u32;
+param pe_y: u32;
+
+// Source dimensions
+const SRC_BATCH: u32 = {{BATCH}};
+const SRC_CHANNELS: u32 = {{NUM_CHANNELS}};
+const SRC_HEIGHT: u32 = {{SRC_HEIGHT}};
+const SRC_WIDTH: u32 = {{SRC_WIDTH}};
+
+// Crop parameters
+const CROP_TOP: u32 = {{TOP}};
+const CROP_LEFT: u32 = {{LEFT}};
+const CROP_HEIGHT: u32 = {{CROP_HEIGHT}};
+const CROP_WIDTH: u32 = {{CROP_WIDTH}};
+
+// Tile dimensions for this PE
+const TILE_SRC_H: u32 = {{TILE_SRC_H}};
+const TILE_SRC_W: u32 = {{TILE_SRC_W}};
+const TILE_DST_H: u32 = {{TILE_DST_H}};
+const TILE_DST_W: u32 = {{TILE_DST_W}};
+
+// Data type
+const T = {{DTYPE}};
+
+// Source tile
+var src_tile: [SRC_BATCH][SRC_CHANNELS][TILE_SRC_H][TILE_SRC_W]T = @zeros([SRC_BATCH][SRC_CHANNELS][TILE_SRC_H][TILE_SRC_W]T);
+
+// Destination tile (cropped region)
+var dst_tile: [SRC_BATCH][SRC_CHANNELS][TILE_DST_H][TILE_DST_W]T = @zeros([SRC_BATCH][SRC_CHANNELS][TILE_DST_H][TILE_DST_W]T);
+
+// Export pointers for host access
+export var src_ptr = &src_tile;
+export var dst_ptr = &dst_tile;
+
+// Crop task
+task crop() void {
+    // Compute global offset for this PE's tile
+    const global_y_offset = pe_y * TILE_SRC_H;
+    const global_x_offset = pe_x * TILE_SRC_W;
+
+    // Compute destination offset
+    const dst_y_offset = pe_y * TILE_DST_H;
+    const dst_x_offset = pe_x * TILE_DST_W;
+
+    // Process each batch and channel
+    for (@range(u32, 0, SRC_BATCH)) |b| {
+        for (@range(u32, 0, SRC_CHANNELS)) |c| {
+            // Process each pixel in the destination tile
+            for (@range(u32, 0, TILE_DST_H)) |dy| {
+                for (@range(u32, 0, TILE_DST_W)) |dx| {
+                    // Compute global destination coordinates
+                    const global_dst_y = dst_y_offset + dy;
+                    const global_dst_x = dst_x_offset + dx;
+
+                    // Check bounds
+                    if (global_dst_y < CROP_HEIGHT and global_dst_x < CROP_WIDTH) {
+                        // Compute source coordinates (offset by crop region)
+                        const global_src_y = CROP_TOP + global_dst_y;
+                        const global_src_x = CROP_LEFT + global_dst_x;
+
+                        // Convert to local source tile coordinates
+                        const local_src_y = global_src_y - global_y_offset;
+                        const local_src_x = global_src_x - global_x_offset;
+
+                        // Check if source pixel is in this PE's tile
+                        if (local_src_y < TILE_SRC_H and local_src_x < TILE_SRC_W) {
+                            dst_tile[b][c][dy][dx] = src_tile[b][c][local_src_y][local_src_x];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(crop, sys_mod.LAUNCH);
+}

@@ -1,0 +1,161 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "cmake>=3.18",
+    "pybind11>=2.11.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyflame-vision"
+version = "1.0.0a1"
+description = "Cerebras-native computer vision library for PyFlame"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PyFlame Contributors"}
+]
+maintainers = [
+    {name = "PyFlame Contributors"}
+]
+keywords = [
+    "computer-vision",
+    "deep-learning",
+    "cerebras",
+    "machine-learning",
+    "image-processing",
+    "transforms",
+    "datasets",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.20.0",
+    "pillow>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.3.0",
+    "sphinx-autodoc-typehints>=1.22.0",
+]
+pyflame = [
+    "pyflame>=0.1.0",  # Optional PyFlame integration
+]
+all = [
+    "pyflame-vision[dev,docs,pyflame]",
+]
+
+[project.urls]
+Homepage = "https://github.com/pyflame/pyflame-vision"
+Documentation = "https://pyflame-vision.readthedocs.io"
+Repository = "https://github.com/pyflame/pyflame-vision"
+Issues = "https://github.com/pyflame/pyflame-vision/issues"
+Changelog = "https://github.com/pyflame/pyflame-vision/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+packages = ["pyflame_vision"]
+package-dir = {"" = "python"}
+
+[tool.setuptools.package-data]
+pyflame_vision = ["py.typed", "*.pyi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+    | \.venv
+    | build
+    | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
+skip = [".git", ".venv", "build", "dist"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    "build",
+    "dist",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+exclude = [
+    ".git",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+]
+
+[tool.coverage.run]
+source = ["python/pyflame_vision"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

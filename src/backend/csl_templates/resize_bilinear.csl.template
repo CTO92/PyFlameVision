@@ -1,0 +1,108 @@
+// PyFlame Vision Generated - Bilinear Resize
+// Operation: {{OP_NAME}}
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// PE coordinates
+param pe_x: u32;
+param pe_y: u32;
+
+// Source dimensions
+const SRC_HEIGHT: u32 = {{SRC_HEIGHT}};
+const SRC_WIDTH: u32 = {{SRC_WIDTH}};
+
+// Destination dimensions
+const DST_HEIGHT: u32 = {{DST_HEIGHT}};
+const DST_WIDTH: u32 = {{DST_WIDTH}};
+
+// Number of channels
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+
+// Tile dimensions for this PE
+const TILE_SRC_H: u32 = {{TILE_SRC_H}};
+const TILE_SRC_W: u32 = {{TILE_SRC_W}};
+const TILE_DST_H: u32 = {{TILE_DST_H}};
+const TILE_DST_W: u32 = {{TILE_DST_W}};
+
+// Halo for bilinear interpolation (1 pixel border)
+const HALO: u32 = 1;
+
+// Data type
+const T = {{DTYPE}};
+
+// Source tile with halo (for interpolation)
+var src_tile: [NUM_CHANNELS][TILE_SRC_H + 2*HALO][TILE_SRC_W + 2*HALO]T = @zeros([NUM_CHANNELS][TILE_SRC_H + 2*HALO][TILE_SRC_W + 2*HALO]T);
+
+// Destination tile
+var dst_tile: [NUM_CHANNELS][TILE_DST_H][TILE_DST_W]T = @zeros([NUM_CHANNELS][TILE_DST_H][TILE_DST_W]T);
+
+// Scaling factors (precomputed)
+const scale_y: T = @as(T, SRC_HEIGHT) / @as(T, DST_HEIGHT);
+const scale_x: T = @as(T, SRC_WIDTH) / @as(T, DST_WIDTH);
+
+// Export pointers for host access
+export var src_ptr = &src_tile;
+export var dst_ptr = &dst_tile;
+
+// Bilinear interpolation weight computation
+fn compute_weights(coord: T, max_idx: u32) struct { lo: u32, hi: u32, w_lo: T, w_hi: T } {
+    const floor_coord = @floor(coord);
+    const lo = @as(u32, @max(0, @as(i32, floor_coord)));
+    const hi = @min(lo + 1, max_idx);
+    const w_hi = coord - floor_coord;
+    const w_lo = 1.0 - w_hi;
+    return .{ .lo = lo, .hi = hi, .w_lo = w_lo, .w_hi = w_hi };
+}
+
+// Main resize task
+task resize() void {
+    // Compute global offset for this PE's destination tile
+    const global_y_offset = pe_y * TILE_DST_H;
+    const global_x_offset = pe_x * TILE_DST_W;
+
+    // Process each channel
+    for (@range(u32, 0, NUM_CHANNELS)) |c| {
+        // Process each destination pixel
+        for (@range(u32, 0, TILE_DST_H)) |dy| {
+            for (@range(u32, 0, TILE_DST_W)) |dx| {
+                // Map destination to source coordinates
+                // Using (dst + 0.5) * scale - 0.5 for center alignment
+                const src_y = (@as(T, global_y_offset + dy) + 0.5) * scale_y - 0.5;
+                const src_x = (@as(T, global_x_offset + dx) + 0.5) * scale_x - 0.5;
+
+                // Convert to local tile coordinates (with halo offset)
+                const local_y = src_y - @as(T, pe_y * TILE_SRC_H) + @as(T, HALO);
+                const local_x = src_x - @as(T, pe_x * TILE_SRC_W) + @as(T, HALO);
+
+                // Compute interpolation weights
+                const wy = compute_weights(local_y, TILE_SRC_H + 2*HALO - 1);
+                const wx = compute_weights(local_x, TILE_SRC_W + 2*HALO - 1);
+
+                // Get four neighboring pixels
+                const v00 = src_tile[c][wy.lo][wx.lo];
+                const v01 = src_tile[c][wy.lo][wx.hi];
+                const v10 = src_tile[c][wy.hi][wx.lo];
+                const v11 = src_tile[c][wy.hi][wx.hi];
+
+                // Bilinear interpolation
+                const top = v00 * wx.w_lo + v01 * wx.w_hi;
+                const bot = v10 * wx.w_lo + v11 * wx.w_hi;
+                const result = top * wy.w_lo + bot * wy.w_hi;
+
+                dst_tile[c][dy][dx] = result;
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(resize, sys_mod.LAUNCH);
+}

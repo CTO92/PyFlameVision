@@ -1,0 +1,83 @@
+// PyFlame Vision Generated - Gaussian Blur (Separable)
+// Operation: {{OP_NAME}}
+// Generated: {{TIMESTAMP}}
+//
+// Uses separable Gaussian convolution for O(n) complexity instead of O(n^2)
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+param pe_x: u32;
+param pe_y: u32;
+
+// Dimensions
+const BATCH: u32 = {{BATCH}};
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+const HEIGHT: u32 = {{HEIGHT}};
+const WIDTH: u32 = {{WIDTH}};
+
+// Kernel parameters
+const KERNEL_SIZE: u32 = {{KERNEL_SIZE}};
+const KERNEL_RADIUS: u32 = KERNEL_SIZE / 2;
+
+// Tile dimensions
+const TILE_H: u32 = {{TILE_H}};
+const TILE_W: u32 = {{TILE_W}};
+
+// 1D Gaussian kernel weights (separable - same for H and V passes)
+const kernel: [KERNEL_SIZE]f32 = {{KERNEL_WEIGHTS}};
+
+// Data buffers with halo for blur
+var input_tile: [BATCH][NUM_CHANNELS][TILE_H + 2*KERNEL_RADIUS][TILE_W + 2*KERNEL_RADIUS]f32;
+var temp_tile: [BATCH][NUM_CHANNELS][TILE_H + 2*KERNEL_RADIUS][TILE_W]f32;  // After horizontal pass
+var output_tile: [BATCH][NUM_CHANNELS][TILE_H][TILE_W]f32;
+
+export var input_ptr = &input_tile;
+export var output_ptr = &output_tile;
+
+// Horizontal blur pass (convolve along width)
+task blur_horizontal() void {
+    for (@range(u32, 0, BATCH)) |b| {
+        for (@range(u32, 0, NUM_CHANNELS)) |c| {
+            // Process all rows including halo (needed for vertical pass)
+            for (@range(u32, 0, TILE_H + 2*KERNEL_RADIUS)) |h| {
+                for (@range(u32, 0, TILE_W)) |w| {
+                    var sum: f32 = 0.0;
+                    for (@range(u32, 0, KERNEL_SIZE)) |k| {
+                        sum = sum + input_tile[b][c][h][w + k] * kernel[k];
+                    }
+                    temp_tile[b][c][h][w] = sum;
+                }
+            }
+        }
+    }
+
+    @activate(blur_vertical);
+}
+
+// Vertical blur pass (convolve along height)
+task blur_vertical() void {
+    for (@range(u32, 0, BATCH)) |b| {
+        for (@range(u32, 0, NUM_CHANNELS)) |c| {
+            for (@range(u32, 0, TILE_H)) |h| {
+                for (@range(u32, 0, TILE_W)) |w| {
+                    var sum: f32 = 0.0;
+                    for (@range(u32, 0, KERNEL_SIZE)) |k| {
+                        sum = sum + temp_tile[b][c][h + k][w] * kernel[k];
+                    }
+                    output_tile[b][c][h][w] = sum;
+                }
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(blur_horizontal, sys_mod.LAUNCH);
+}

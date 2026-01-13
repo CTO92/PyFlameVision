@@ -1,0 +1,158 @@
+// PyFlame Vision Generated - Color Jitter
+// Operation: {{OP_NAME}}
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// Dimensions
+const BATCH: u32 = {{BATCH}};
+const NUM_CHANNELS: u32 = 3;  // RGB only
+const HEIGHT: u32 = {{HEIGHT}};
+const WIDTH: u32 = {{WIDTH}};
+
+// Jitter parameters (set by host based on random sampling)
+const brightness_factor: f32 = {{BRIGHTNESS_FACTOR}};
+const contrast_factor: f32 = {{CONTRAST_FACTOR}};
+const saturation_factor: f32 = {{SATURATION_FACTOR}};
+const hue_factor: f32 = {{HUE_FACTOR}};
+
+// Transform order (0=B, 1=C, 2=S, 3=H)
+const order: [4]u32 = {{ORDER_ARRAY}};
+
+// Data buffer (in-place transformation)
+var data: [BATCH][NUM_CHANNELS][HEIGHT][WIDTH]f32;
+
+export var data_ptr = &data;
+
+// Clamp value to [0, 1]
+fn clamp01(val: f32) f32 {
+    if (val < 0.0) return 0.0;
+    if (val > 1.0) return 1.0;
+    return val;
+}
+
+// RGB to HSV conversion
+fn rgb_to_hsv(r: f32, g: f32, b: f32) struct { h: f32, s: f32, v: f32 } {
+    const max_c = @max(@max(r, g), b);
+    const min_c = @min(@min(r, g), b);
+    const delta = max_c - min_c;
+
+    var h: f32 = 0.0;
+    var s: f32 = 0.0;
+    const v = max_c;
+
+    if (delta > 1e-6) {
+        s = delta / max_c;
+
+        if (max_c == r) {
+            h = (g - b) / delta;
+            if (h < 0.0) h = h + 6.0;
+        } else if (max_c == g) {
+            h = 2.0 + (b - r) / delta;
+        } else {
+            h = 4.0 + (r - g) / delta;
+        }
+        h = h / 6.0;
+    }
+
+    return .{ .h = h, .s = s, .v = v };
+}
+
+// HSV to RGB conversion
+fn hsv_to_rgb(h: f32, s: f32, v: f32) struct { r: f32, g: f32, b: f32 } {
+    if (s < 1e-6) {
+        return .{ .r = v, .g = v, .b = v };
+    }
+
+    const hue = h * 6.0;
+    const i = @as(u32, @floor(hue));
+    const f = hue - @as(f32, i);
+    const p = v * (1.0 - s);
+    const q = v * (1.0 - s * f);
+    const t = v * (1.0 - s * (1.0 - f));
+
+    switch (i % 6) {
+        0 => return .{ .r = v, .g = t, .b = p },
+        1 => return .{ .r = q, .g = v, .b = p },
+        2 => return .{ .r = p, .g = v, .b = t },
+        3 => return .{ .r = p, .g = q, .b = v },
+        4 => return .{ .r = t, .g = p, .b = v },
+        5 => return .{ .r = v, .g = p, .b = q },
+        else => return .{ .r = v, .g = v, .b = v },
+    }
+}
+
+// Apply brightness adjustment: multiply RGB by factor
+fn apply_brightness(r: *f32, g: *f32, b: *f32) void {
+    r.* = clamp01(r.* * brightness_factor);
+    g.* = clamp01(g.* * brightness_factor);
+    b.* = clamp01(b.* * brightness_factor);
+}
+
+// Apply contrast adjustment: blend towards gray
+fn apply_contrast(r: *f32, g: *f32, b: *f32) void {
+    // Compute grayscale using standard weights
+    const gray = 0.2989 * r.* + 0.5870 * g.* + 0.1140 * b.*;
+    r.* = clamp01(gray + (r.* - gray) * contrast_factor);
+    g.* = clamp01(gray + (g.* - gray) * contrast_factor);
+    b.* = clamp01(gray + (b.* - gray) * contrast_factor);
+}
+
+// Apply saturation adjustment: blend towards grayscale
+fn apply_saturation(r: *f32, g: *f32, b: *f32) void {
+    const gray = 0.2989 * r.* + 0.5870 * g.* + 0.1140 * b.*;
+    r.* = clamp01(gray + (r.* - gray) * saturation_factor);
+    g.* = clamp01(gray + (g.* - gray) * saturation_factor);
+    b.* = clamp01(gray + (b.* - gray) * saturation_factor);
+}
+
+// Apply hue adjustment: rotate hue in HSV space
+fn apply_hue(r: *f32, g: *f32, b: *f32) void {
+    const hsv = rgb_to_hsv(r.*, g.*, b.*);
+    var new_h = hsv.h + hue_factor;
+    if (new_h < 0.0) new_h = new_h + 1.0;
+    if (new_h > 1.0) new_h = new_h - 1.0;
+    const rgb = hsv_to_rgb(new_h, hsv.s, hsv.v);
+    r.* = rgb.r;
+    g.* = rgb.g;
+    b.* = rgb.b;
+}
+
+// Main color jitter task
+task color_jitter() void {
+    for (@range(u32, 0, BATCH)) |batch| {
+        for (@range(u32, 0, HEIGHT)) |h| {
+            for (@range(u32, 0, WIDTH)) |w| {
+                var r = data[batch][0][h][w];
+                var g = data[batch][1][h][w];
+                var b = data[batch][2][h][w];
+
+                // Apply transforms in the specified random order
+                for (order) |op| {
+                    switch (op) {
+                        0 => apply_brightness(&r, &g, &b),
+                        1 => apply_contrast(&r, &g, &b),
+                        2 => apply_saturation(&r, &g, &b),
+                        3 => apply_hue(&r, &g, &b),
+                        else => {},
+                    }
+                }
+
+                data[batch][0][h][w] = r;
+                data[batch][1][h][w] = g;
+                data[batch][2][h][w] = b;
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(color_jitter, sys_mod.LAUNCH);
+}

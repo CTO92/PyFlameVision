@@ -1,0 +1,201 @@
+// PyFlame Vision Generated - Halo Exchange
+// Exchanges border pixels between neighboring PEs for distributed image processing
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// PE coordinates
+param pe_x: u32;
+param pe_y: u32;
+
+// Grid dimensions
+const GRID_ROWS: u32 = {{PE_ROWS}};
+const GRID_COLS: u32 = {{PE_COLS}};
+
+// Tile dimensions
+const TILE_H: u32 = {{TILE_H}};
+const TILE_W: u32 = {{TILE_W}};
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+const HALO: u32 = {{HALO_SIZE}};
+
+// Data type
+const T = {{DTYPE}};
+
+// Colors for cardinal directions
+const color_north: color = @get_color(0);
+const color_south: color = @get_color(1);
+const color_east: color = @get_color(2);
+const color_west: color = @get_color(3);
+
+// Data with halo regions
+var data: [NUM_CHANNELS][TILE_H + 2*HALO][TILE_W + 2*HALO]T = @zeros([NUM_CHANNELS][TILE_H + 2*HALO][TILE_W + 2*HALO]T);
+
+// Send buffers (halo-sized strips)
+var send_north: [NUM_CHANNELS][HALO][TILE_W]T = @zeros([NUM_CHANNELS][HALO][TILE_W]T);
+var send_south: [NUM_CHANNELS][HALO][TILE_W]T = @zeros([NUM_CHANNELS][HALO][TILE_W]T);
+var send_east: [NUM_CHANNELS][TILE_H][HALO]T = @zeros([NUM_CHANNELS][TILE_H][HALO]T);
+var send_west: [NUM_CHANNELS][TILE_H][HALO]T = @zeros([NUM_CHANNELS][TILE_H][HALO]T);
+
+// Fabric connections for sending
+const out_north = @get_output_queue(color_north);
+const out_south = @get_output_queue(color_south);
+const out_east = @get_output_queue(color_east);
+const out_west = @get_output_queue(color_west);
+
+// Fabric connections for receiving
+// Note: We receive from the opposite direction
+const in_from_north = @get_input_queue(color_south);
+const in_from_south = @get_input_queue(color_north);
+const in_from_east = @get_input_queue(color_west);
+const in_from_west = @get_input_queue(color_east);
+
+// Export pointer
+export var data_ptr = &data;
+
+// Phase 1: Pack border data into send buffers
+task pack_halos() void {
+    for (@range(u32, 0, NUM_CHANNELS)) |c| {
+        // North border (top rows of interior)
+        for (@range(u32, 0, HALO)) |h| {
+            for (@range(u32, 0, TILE_W)) |w| {
+                send_north[c][h][w] = data[c][HALO + h][HALO + w];
+            }
+        }
+
+        // South border (bottom rows of interior)
+        for (@range(u32, 0, HALO)) |h| {
+            for (@range(u32, 0, TILE_W)) |w| {
+                send_south[c][h][w] = data[c][TILE_H + h][HALO + w];
+            }
+        }
+
+        // East border (right columns of interior)
+        for (@range(u32, 0, TILE_H)) |h| {
+            for (@range(u32, 0, HALO)) |w| {
+                send_east[c][h][w] = data[c][HALO + h][TILE_W + w];
+            }
+        }
+
+        // West border (left columns of interior)
+        for (@range(u32, 0, TILE_H)) |h| {
+            for (@range(u32, 0, HALO)) |w| {
+                send_west[c][h][w] = data[c][HALO + h][HALO + w];
+            }
+        }
+    }
+
+    @activate(send_halo_data);
+}
+
+// Phase 2: Send halo data to neighbors
+task send_halo_data() void {
+    const north_size = NUM_CHANNELS * HALO * TILE_W;
+    const south_size = NUM_CHANNELS * HALO * TILE_W;
+    const east_size = NUM_CHANNELS * TILE_H * HALO;
+    const west_size = NUM_CHANNELS * TILE_H * HALO;
+
+    // Send to north neighbor (if not on top row)
+    if (pe_y > 0) {
+        for (@range(u32, 0, north_size)) |i| {
+            const c = i / (HALO * TILE_W);
+            const h = (i / TILE_W) % HALO;
+            const w = i % TILE_W;
+            out_north.enqueue(@bitCast(u32, send_north[c][h][w]));
+        }
+    }
+
+    // Send to south neighbor (if not on bottom row)
+    if (pe_y < GRID_ROWS - 1) {
+        for (@range(u32, 0, south_size)) |i| {
+            const c = i / (HALO * TILE_W);
+            const h = (i / TILE_W) % HALO;
+            const w = i % TILE_W;
+            out_south.enqueue(@bitCast(u32, send_south[c][h][w]));
+        }
+    }
+
+    // Send to east neighbor (if not on right column)
+    if (pe_x < GRID_COLS - 1) {
+        for (@range(u32, 0, east_size)) |i| {
+            const c = i / (TILE_H * HALO);
+            const h = (i / HALO) % TILE_H;
+            const w = i % HALO;
+            out_east.enqueue(@bitCast(u32, send_east[c][h][w]));
+        }
+    }
+
+    // Send to west neighbor (if not on left column)
+    if (pe_x > 0) {
+        for (@range(u32, 0, west_size)) |i| {
+            const c = i / (TILE_H * HALO);
+            const h = (i / HALO) % TILE_H;
+            const w = i % HALO;
+            out_west.enqueue(@bitCast(u32, send_west[c][h][w]));
+        }
+    }
+
+    @activate(receive_halo_data);
+}
+
+// Phase 3: Receive halo data from neighbors
+task receive_halo_data() void {
+    const north_size = NUM_CHANNELS * HALO * TILE_W;
+    const south_size = NUM_CHANNELS * HALO * TILE_W;
+    const east_size = NUM_CHANNELS * TILE_H * HALO;
+    const west_size = NUM_CHANNELS * TILE_H * HALO;
+
+    // Receive from north (into top halo region)
+    if (pe_y > 0) {
+        for (@range(u32, 0, north_size)) |i| {
+            const val = in_from_north.dequeue();
+            const c = i / (HALO * TILE_W);
+            const h = (i / TILE_W) % HALO;
+            const w = i % TILE_W;
+            data[c][h][HALO + w] = @bitCast(T, val);
+        }
+    }
+
+    // Receive from south (into bottom halo region)
+    if (pe_y < GRID_ROWS - 1) {
+        for (@range(u32, 0, south_size)) |i| {
+            const val = in_from_south.dequeue();
+            const c = i / (HALO * TILE_W);
+            const h = (i / TILE_W) % HALO;
+            const w = i % TILE_W;
+            data[c][TILE_H + HALO + h][HALO + w] = @bitCast(T, val);
+        }
+    }
+
+    // Receive from east (into right halo region)
+    if (pe_x < GRID_COLS - 1) {
+        for (@range(u32, 0, east_size)) |i| {
+            const val = in_from_east.dequeue();
+            const c = i / (TILE_H * HALO);
+            const h = (i / HALO) % TILE_H;
+            const w = i % HALO;
+            data[c][HALO + h][TILE_W + HALO + w] = @bitCast(T, val);
+        }
+    }
+
+    // Receive from west (into left halo region)
+    if (pe_x > 0) {
+        for (@range(u32, 0, west_size)) |i| {
+            const val = in_from_west.dequeue();
+            const c = i / (TILE_H * HALO);
+            const h = (i / HALO) % TILE_H;
+            const w = i % HALO;
+            data[c][HALO + h][w] = @bitCast(T, val);
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(pack_halos, sys_mod.LAUNCH);
+}

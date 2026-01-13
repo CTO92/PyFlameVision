@@ -1,0 +1,41 @@
+# Include C++ source files for building
+recursive-include include *.hpp *.h
+recursive-include src *.cpp *.hpp *.h *.csl.template
+recursive-include python *.cpp
+
+# Include CMake files
+include CMakeLists.txt
+recursive-include src CMakeLists.txt
+recursive-include python CMakeLists.txt
+recursive-include tests CMakeLists.txt
+recursive-include examples CMakeLists.txt
+
+# Include Python package
+recursive-include python/pyflame_vision *.py *.pyi
+
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+recursive-include docs *.md *.rst
+
+# Include configuration files
+include pyproject.toml
+include setup.py
+include pytest.ini
+include requirements.txt
+include requirements-dev.txt
+
+# Exclude build artifacts
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.dll
+global-exclude .DS_Store
+global-exclude *.egg-info
+prune build
+prune dist
+prune .git
+prune .venv
+prune .claude

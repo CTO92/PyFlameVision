@@ -1,0 +1,9 @@
+"""Version information for PyFlameVision."""
+
+__version__ = "@PYFLAME_VISION_VERSION_FULL@"
+
+version_info = (
+    @PYFLAME_VISION_VERSION_MAJOR@,
+    @PYFLAME_VISION_VERSION_MINOR@,
+    @PYFLAME_VISION_VERSION_PATCH@,
+)

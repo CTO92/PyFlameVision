@@ -1,0 +1,67 @@
+// PyFlame Vision Generated - Channel-wise Normalization
+// Operation: {{OP_NAME}}
+// Normalization: output = (input - mean) / std
+// Generated: {{TIMESTAMP}}
+
+param memcpy = @import_module("<memcpy/get_params>", .{
+    .width = {{PE_COLS}},
+    .height = {{PE_ROWS}},
+});
+
+const sys_mod = @import_module("<memcpy_multi/memcpy>", memcpy);
+
+// Dimensions
+const BATCH: u32 = {{BATCH}};
+const NUM_CHANNELS: u32 = {{NUM_CHANNELS}};
+const HEIGHT: u32 = {{HEIGHT}};
+const WIDTH: u32 = {{WIDTH}};
+
+// Data type
+const T = {{DTYPE}};
+
+// Normalization parameters (per-channel)
+// These are embedded at compile time
+const mean: [NUM_CHANNELS]T = .{ {{MEAN_VALUES}} };
+const std_val: [NUM_CHANNELS]T = .{ {{STD_VALUES}} };
+
+// Precompute 1/std for efficiency (done at compile time)
+const inv_std: [NUM_CHANNELS]T = comptime blk: {
+    var result: [NUM_CHANNELS]T = undefined;
+    for (0..NUM_CHANNELS) |c| {
+        result[c] = 1.0 / std_val[c];
+    }
+    break :blk result;
+};
+
+// Data buffer (in-place operation)
+var data: [BATCH][NUM_CHANNELS][HEIGHT][WIDTH]T = @zeros([BATCH][NUM_CHANNELS][HEIGHT][WIDTH]T);
+
+// Export pointer for host access
+export var data_ptr = &data;
+
+// Normalize task
+task normalize() void {
+    // Process each batch
+    for (@range(u32, 0, BATCH)) |b| {
+        // Process each channel
+        for (@range(u32, 0, NUM_CHANNELS)) |c| {
+            const m = mean[c];
+            const s = inv_std[c];
+
+            // Process each pixel
+            for (@range(u32, 0, HEIGHT)) |h| {
+                for (@range(u32, 0, WIDTH)) |w| {
+                    // output = (input - mean) / std
+                    //        = (input - mean) * inv_std
+                    data[b][c][h][w] = (data[b][c][h][w] - m) * s;
+                }
+            }
+        }
+    }
+
+    sys_mod.unblock_cmd_stream();
+}
+
+comptime {
+    @bind_local_task_to_color(normalize, sys_mod.LAUNCH);
+}
